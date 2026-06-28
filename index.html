@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Daily Ritual">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <title>Daily Ritual</title>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -48,7 +53,7 @@ html[data-theme="dark"] {
 /* ═══════════════ BASE ═══════════════ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%;background:var(--bg)}
-body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:100dvh;-webkit-font-smoothing:antialiased;transition:background .25s,color .25s;overflow-x:hidden}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:100dvh;min-height:-webkit-fill-available;-webkit-font-smoothing:antialiased;transition:background .25s,color .25s;overflow-x:hidden}
 button{font-family:var(--font);cursor:pointer;border:none;background:none}
 input,textarea{font-family:var(--font)}
 textarea{resize:none}
@@ -84,7 +89,7 @@ textarea{resize:none}
   -webkit-backdrop-filter:blur(24px) saturate(180%);
   border-bottom:1px solid var(--border);
   display:flex;align-items:center;gap:10px;
-  padding:0 14px;height:46px;
+  padding:env(safe-area-inset-top,0px) 14px 0;height:calc(46px + env(safe-area-inset-top,0px));
   transition:background .25s;position:relative;
 }
 @media(min-width:900px){.app-titlebar{display:none}}
@@ -143,14 +148,14 @@ html[data-theme="dark"] .ts-sun{opacity:.4}
 html[data-theme="dark"] .ts-moon{opacity:1}
 
 /* Views */
-.view{display:none;padding-bottom:84px}
+.view{display:none;padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 .view.active{display:block}
 @media(min-width:900px){.view{padding-bottom:40px}}
 
 /* Bottom nav */
-.bnav{position:fixed;bottom:0;left:0;right:0;height:64px;background:var(--glass);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border-top:1px solid var(--border);display:flex;z-index:80;padding-bottom:env(safe-area-inset-bottom);transition:background .25s}
+.bnav{position:fixed;bottom:0;left:0;right:0;min-height:64px;background:var(--glass);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border-top:1px solid var(--border);display:flex;z-index:80;padding-bottom:env(safe-area-inset-bottom,0px);transition:background .25s}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;color:var(--ink4);font-size:10px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;transition:color .15s;user-select:none;padding:10px 4px;min-height:64px}
 @media(min-width:900px){.bnav{display:none}}
-.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;color:var(--ink4);font-size:10px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;transition:color .15s;user-select:none;padding:8px 4px}
 .bnav-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);opacity:0;transition:opacity .15s}
 .bnav-item.active .bnav-dot{opacity:1}
 .bnav-item.active{color:var(--accent)}
