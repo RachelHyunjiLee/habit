@@ -57,6 +57,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--ink);min-height:10
 button{font-family:var(--font);cursor:pointer;border:none;background:none}
 input,textarea{font-family:var(--font)}
 textarea{resize:none}
+/* iOS: any input under 16px triggers auto-zoom on focus. Force 16px on mobile/tablet. */
+@media(max-width:899px){
+  input,textarea,select{font-size:16px !important}
+}
 *{-webkit-tap-highlight-color:transparent}
 
 /* ═══════════════ LAYOUT ═══════════════ */
@@ -349,7 +353,8 @@ html[data-theme=dark] .hm-hi{background:rgba(10,132,255,.62)}
 .mac-day-info{display:flex;flex-direction:column}
 .mac-wd{font-size:15px;font-weight:600;color:var(--ink2)}
 .mac-fdate{font-size:12px;color:var(--ink3);margin-top:2px}
-.mac-ta{width:100%;min-height:110px;border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;font-size:14px;line-height:1.8;color:var(--ink);background:var(--bg);outline:none;caret-color:var(--accent);transition:border-color .15s,background .25s;resize:vertical}
+.mac-ta{width:100%;min-height:110px;border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;font-size:14px;line-height:1.8;color:var(--ink);background:var(--bg);outline:none;caret-color:var(--accent);transition:border-color .15s,background .25s;resize:none;overflow:hidden}
+@media(min-width:900px){.mac-ta{resize:vertical}}
 .mac-ta:focus{border-color:var(--accent)}
 .mac-ta::placeholder{color:var(--ink4)}
 .photo-section-label{font-size:11px;font-weight:600;color:var(--ink4);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 8px}
@@ -791,8 +796,8 @@ function renderOverview(){
 
 /* ═══════════ MAC WINDOW ═══════════ */
 let winKey=null,winMin=false;
-function openWin(d){const{year:y,month:m}=S;const key=dk(y,m,d);winKey=key;const wd=new Date(y,m,d).getDay();document.getElementById('win-title').textContent=`${MON_SH[m]} ${d}, ${y}`;document.getElementById('win-day').textContent=d;document.getElementById('win-wd').textContent=WD_EN[wd];document.getElementById('win-fdate').textContent=`${MON_EN[m]} ${d}, ${y}`;document.getElementById('win-ta').value=S.diary[key]||'';let chips='';S.habits.forEach(hb=>{const v=S.records[`${key}:${hb.id}`];const cls=v==='O'?'done':v==='X'?'skip':'none';chips+=`<span class="d-chip ${cls}">${hb.emoji} ${v||'–'}</span>`;});document.getElementById('win-chips').innerHTML=chips;renderPhotoStrip(key);winMin=false;document.getElementById('mac-body').style.display='';document.querySelector('.mac-foot').style.display='';const ov=document.getElementById('win-overlay');ov.classList.add('open');ov.classList.remove('fs-overlay');const win=document.getElementById('mac-win');win.classList.remove('fullscreen','is-resized');win.style.width='';win.style.height='';setTimeout(()=>document.getElementById('win-ta').focus(),100);}
-function closeWin(){document.getElementById('win-overlay').classList.remove('open','fs-overlay');const win=document.getElementById('mac-win');win.classList.remove('fullscreen','is-resized');win.style.width='';win.style.height='';winKey=null;}
+function openWin(d){const{year:y,month:m}=S;const key=dk(y,m,d);winKey=key;const wd=new Date(y,m,d).getDay();document.getElementById('win-title').textContent=`${MON_SH[m]} ${d}, ${y}`;document.getElementById('win-day').textContent=d;document.getElementById('win-wd').textContent=WD_EN[wd];document.getElementById('win-fdate').textContent=`${MON_EN[m]} ${d}, ${y}`;document.getElementById('win-ta').value=S.diary[key]||'';let chips='';S.habits.forEach(hb=>{const v=S.records[`${key}:${hb.id}`];const cls=v==='O'?'done':v==='X'?'skip':'none';chips+=`<span class="d-chip ${cls}">${hb.emoji} ${v||'–'}</span>`;});document.getElementById('win-chips').innerHTML=chips;renderPhotoStrip(key);winMin=false;document.getElementById('mac-body').style.display='';document.querySelector('.mac-foot').style.display='';const ov=document.getElementById('win-overlay');ov.classList.add('open');ov.classList.remove('fs-overlay');const win=document.getElementById('mac-win');win.classList.remove('fullscreen','is-resized');win.style.width='';win.style.height='';win.style.marginTop='';setTimeout(()=>{const ta=document.getElementById('win-ta');autoGrow(ta);ta.focus();},100);}
+function closeWin(){document.getElementById('win-overlay').classList.remove('open','fs-overlay');const win=document.getElementById('mac-win');win.classList.remove('fullscreen','is-resized');win.style.width='';win.style.height='';win.style.marginTop='';winKey=null;}
 document.getElementById('md-close').addEventListener('click',closeWin);
 document.getElementById('win-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('win-overlay'))closeWin();});
 document.getElementById('md-min').addEventListener('click',()=>{winMin=!winMin;document.getElementById('mac-body').style.display=winMin?'none':'';document.querySelector('.mac-foot').style.display=winMin?'none':'';});
@@ -848,7 +853,7 @@ document.getElementById('lightbox').addEventListener('click',()=>document.getEle
 /* ═══════════ HABIT SHEET ═══════════ */
 let editId=null;
 function openSheet(hid){editId=hid;const h=S.habits.find(x=>x.id===hid);if(!h)return;document.getElementById('sh-name').value=h.name;document.getElementById('sh-emoji').value=h.emoji;document.getElementById('sheet-ov').classList.add('open');setTimeout(()=>document.getElementById('sh-name').focus(),60);}
-function closeSheet(){document.getElementById('sheet-ov').classList.remove('open');editId=null;}
+function closeSheet(){const so=document.getElementById('sheet-ov');const sh=so.querySelector('.sheet');if(sh)sh.style.transform='';so.classList.remove('open');editId=null;}
 document.getElementById('sh-cancel').addEventListener('click',closeSheet);
 document.getElementById('sheet-ov').addEventListener('click',e=>{if(e.target===document.getElementById('sheet-ov'))closeSheet();});
 document.getElementById('sh-save').addEventListener('click',()=>{const name=document.getElementById('sh-name').value.trim();const emoji=document.getElementById('sh-emoji').value.trim()||'⭐';if(!name)return;const h=S.habits.find(x=>x.id===editId);if(h){h.name=name;h.emoji=emoji;}save();closeSheet();renderAll();showToast('✏️ Updated');});
@@ -867,9 +872,75 @@ document.getElementById('fm-cancel').addEventListener('click',hideFirebaseModal)
 document.getElementById('fm-save').addEventListener('click',()=>{try{const cfg=JSON.parse(document.getElementById('fb-config-input').value.trim());if(fbInit(cfg)){hideFirebaseModal();document.getElementById('config-notice').style.display='none';showToast('🔥 Connected!');}else showToast('❌ Invalid config');}catch(e){showToast('❌ Invalid JSON');}});
 document.getElementById('config-link').addEventListener('click',e=>{e.preventDefault();showFirebaseModal();});
 
+/* ═══════════ AUTO-GROW TEXTAREAS ═══════════ */
+function autoGrow(el){
+  if(!el) return;
+  el.style.height='auto';
+  // grow to fit content; cap so it doesn't exceed the modal/screen
+  const max=Math.round(window.innerHeight*0.5);
+  el.style.height=Math.min(el.scrollHeight,max)+'px';
+  el.style.overflowY = el.scrollHeight>max ? 'auto' : 'hidden';
+}
+// Apply to any textarea that opts in via .auto-grow OR the known ones
+document.addEventListener('input',e=>{
+  if(e.target.tagName==='TEXTAREA') autoGrow(e.target);
+});
+
 /* ═══════════ BOOT ═══════════ */
 renderAll();
-window.addEventListener('resize',()=>{clearTimeout(window._rt);window._rt=setTimeout(renderChart,120);});
+window.addEventListener('resize',()=>{clearTimeout(window._rt);window._rt=setTimeout(()=>{renderChart();const ta=document.getElementById('win-ta');if(ta&&document.getElementById('win-overlay').classList.contains('open'))autoGrow(ta);},120);});
+
+/* ═══════════ iOS KEYBOARD HANDLING ═══════════ */
+(function(){
+  const bnav=document.querySelector('.bnav');
+  const winOverlay=document.getElementById('win-overlay');
+  const macWin=document.getElementById('mac-win');
+  const sheetOv=document.getElementById('sheet-ov');
+  const sheet=sheetOv?sheetOv.querySelector('.sheet'):null;
+
+  function setTyping(on){ if(bnav) bnav.style.display = on ? 'none' : ''; }
+
+  function onFocus(e){
+    const t=e.target;
+    if(!t.matches('input,textarea')) return;
+    setTyping(true);
+    setTimeout(()=>{ try{ t.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_){ } },300);
+  }
+  function onBlur(e){
+    if(!e.target.matches('input,textarea')) return;
+    setTimeout(()=>{
+      const a=document.activeElement;
+      if(!a||!a.matches||!a.matches('input,textarea')){ setTyping(false); resetLifts(); }
+    },150);
+  }
+  document.addEventListener('focusin',onFocus);
+  document.addEventListener('focusout',onBlur);
+
+  function resetLifts(){ if(macWin) macWin.style.marginTop=''; if(sheet) sheet.style.transform=''; }
+
+  if(window.visualViewport){
+    function adjust(){
+      const vv=window.visualViewport;
+      const kb=window.innerHeight - vv.height - vv.offsetTop; // keyboard height estimate
+      const open=kb>80;
+      // Diary modal: lift via margin so it never hides behind the keyboard
+      if(winOverlay && winOverlay.classList.contains('open') && macWin){
+        if(open){
+          const rect=macWin.getBoundingClientRect();
+          const overflow=rect.bottom - vv.height + 14;
+          macWin.style.marginTop = overflow>0 ? `${-overflow}px` : '';
+        } else macWin.style.marginTop='';
+      }
+      // Habit sheet (bottom-anchored): lift above keyboard
+      if(sheetOv && sheetOv.classList.contains('open') && sheet){
+        sheet.style.transform = open ? `translateY(${-kb}px)` : '';
+      }
+    }
+    window.visualViewport.addEventListener('resize',adjust);
+    window.visualViewport.addEventListener('scroll',adjust);
+  }
+})();
+
 </script>
 </body>
 </html>
