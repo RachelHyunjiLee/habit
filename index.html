@@ -390,7 +390,10 @@ html[data-theme=dark] .hm-hi{background:rgba(10,132,255,.62)}
 .overlay.fs-overlay{padding:0}
 .lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:500;align-items:center;justify-content:center;flex-direction:column}
 .lightbox.open{display:flex}
-.lb-stage{flex:1;display:flex;align-items:center;justify-content:center;width:100%;overflow:hidden;touch-action:pan-y;padding:40px 8px 0}
+.lb-stage{flex:1;display:flex;align-items:center;justify-content:center;width:100%;overflow:hidden;touch-action:pan-y;padding:40px 8px 0;position:relative}
+.lb-tapzone{position:absolute;top:0;bottom:0;width:40%;z-index:2;cursor:pointer}
+.lb-tap-left{left:0}
+.lb-tap-right{right:0}
 .lb-img{max-width:94%;max-height:100%;border-radius:var(--r-md);box-shadow:var(--sh-lg);object-fit:contain;user-select:none;-webkit-user-drag:none;transition:transform .05s}
 .lb-close{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);right:16px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:3;transition:background .15s}
 .lb-close:hover{background:rgba(255,255,255,.28)}
@@ -601,6 +604,8 @@ html[data-theme=dark] .hm-hi{background:rgba(10,132,255,.62)}
   <button class="lb-close" id="lb-close" aria-label="Close">✕</button>
   <button class="lb-arrow lb-prev" id="lb-prev" aria-label="Previous">‹</button>
   <div class="lb-stage" id="lb-stage">
+    <div class="lb-tapzone lb-tap-left" id="lb-tap-left"></div>
+    <div class="lb-tapzone lb-tap-right" id="lb-tap-right"></div>
     <img class="lb-img" id="lightbox-img" src="" alt="">
   </div>
   <button class="lb-arrow lb-next" id="lb-next" aria-label="Next">›</button>
@@ -1010,6 +1015,9 @@ function openWeekGallery(y,m,dStart,dEnd){
 lbPrev.addEventListener('click',e=>{e.stopPropagation();lbStep(-1);});
 lbNext.addEventListener('click',e=>{e.stopPropagation();lbStep(1);});
 document.getElementById('lb-close').addEventListener('click',e=>{e.stopPropagation();lbClose();});
+// Instagram-style tap zones: left half = previous, right half = next
+document.getElementById('lb-tap-left').addEventListener('click',e=>{e.stopPropagation();lbStep(-1);});
+document.getElementById('lb-tap-right').addEventListener('click',e=>{e.stopPropagation();lbStep(1);});
 // click backdrop (not the image) closes
 lbEl.addEventListener('click',e=>{ if(e.target===lbEl||e.target.id==='lb-stage') lbClose(); });
 // keyboard
