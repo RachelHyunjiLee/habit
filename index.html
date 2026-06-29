@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -239,6 +239,11 @@ html[data-theme="dark"] .ts-moon{opacity:1}
 .cal-wd.wd-sun{color:var(--sat-red)}.cal-wd.wd-sat{color:var(--sat-blue)}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);padding:2px 10px 12px;gap:2px}
 .cal-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:13px;font-weight:500;color:var(--ink2);cursor:pointer;transition:background .12s,color .12s;position:relative;user-select:none}
+@media(min-width:900px){
+  .cal-cell{aspect-ratio:auto;height:52px;max-width:52px;margin:0 auto;width:100%}
+  .cal-grid{gap:4px;padding:6px 14px 16px;max-width:520px;margin:0 auto}
+  .cal-wds{max-width:520px;margin:0 auto;width:100%}
+}
 .cal-cell:hover{background:var(--bg3)}
 .cal-cell.cc-empty{cursor:default;pointer-events:none}
 .cal-cell.cc-sat{color:var(--sat-blue)}.cal-cell.cc-sun{color:var(--sat-red)}.cal-cell.cc-hol{color:var(--sat-red)}
@@ -876,15 +881,24 @@ document.getElementById('config-link').addEventListener('click',e=>{e.preventDef
 function autoGrow(el){
   if(!el) return;
   el.style.height='auto';
-  // grow to fit content; cap so it doesn't exceed the modal/screen
   const max=Math.round(window.innerHeight*0.5);
-  el.style.height=Math.min(el.scrollHeight,max)+'px';
+  const h=Math.min(el.scrollHeight,max);
+  el.style.height=h+'px';
   el.style.overflowY = el.scrollHeight>max ? 'auto' : 'hidden';
 }
-// Apply to any textarea that opts in via .auto-grow OR the known ones
-document.addEventListener('input',e=>{
-  if(e.target.tagName==='TEXTAREA') autoGrow(e.target);
+// Delegated handler — covers every textarea, even ones added later
+['input','keyup','change','paste','cut'].forEach(ev=>{
+  document.addEventListener(ev,e=>{
+    if(e.target&&e.target.tagName==='TEXTAREA') autoGrow(e.target);
+  });
 });
+// Direct binding for the diary textarea (extra safety)
+(function(){
+  const ta=document.getElementById('win-ta');
+  if(ta){
+    ['input','keyup','change'].forEach(ev=>ta.addEventListener(ev,()=>autoGrow(ta)));
+  }
+})();
 
 /* ═══════════ BOOT ═══════════ */
 renderAll();
