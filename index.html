@@ -307,6 +307,11 @@ html[data-theme=dark] .hm-hi{background:rgba(10,132,255,.62)}
 .week-block{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh-sm);transition:background .25s}
 .week-hd{display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-bottom:1px solid var(--border2)}
 .week-title{font-size:13px;font-weight:700;letter-spacing:-.1px}
+.week-viewall{font-size:12px;font-weight:600;color:var(--accent);padding:4px 10px;border-radius:20px;background:var(--accent-s);transition:opacity .15s}
+.week-viewall:hover{opacity:.75}
+.sketch-month-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px}
+.month-viewall-btn{font-size:12px;font-weight:700;color:#fff;background:var(--ink);padding:7px 14px;border-radius:20px;transition:opacity .15s;white-space:nowrap}
+.month-viewall-btn:hover{opacity:.82}
 .week-range{font-size:11px;color:var(--ink4);font-weight:500}
 .week-scroll{display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:12px 15px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
 .week-scroll::-webkit-scrollbar{height:5px}
@@ -383,9 +388,19 @@ html[data-theme=dark] .hm-hi{background:rgba(10,132,255,.62)}
 .mac-btn.pri{background:var(--accent);color:#fff}
 .mac-win.fullscreen{max-width:100%;max-height:100%;width:100%;height:100%;border-radius:0;border:none;animation:none}
 .overlay.fs-overlay{padding:0}
-.lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;align-items:center;justify-content:center;cursor:zoom-out}
+.lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:500;align-items:center;justify-content:center;flex-direction:column}
 .lightbox.open{display:flex}
-.lightbox img{max-width:90%;max-height:90%;border-radius:var(--r-md);box-shadow:var(--sh-lg)}
+.lb-stage{flex:1;display:flex;align-items:center;justify-content:center;width:100%;overflow:hidden;touch-action:pan-y;padding:40px 8px 0}
+.lb-img{max-width:94%;max-height:100%;border-radius:var(--r-md);box-shadow:var(--sh-lg);object-fit:contain;user-select:none;-webkit-user-drag:none;transition:transform .05s}
+.lb-close{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);right:16px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:3;transition:background .15s}
+.lb-close:hover{background:rgba(255,255,255,.28)}
+.lb-arrow{position:absolute;top:50%;transform:translateY(-50%);width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:28px;line-height:1;display:flex;align-items:center;justify-content:center;z-index:3;transition:background .15s,opacity .15s}
+.lb-arrow:hover{background:rgba(255,255,255,.28)}
+.lb-arrow.lb-prev{left:12px}
+.lb-arrow.lb-next{right:12px}
+.lb-arrow.hidden{opacity:0;pointer-events:none}
+.lb-caption{color:rgba(255,255,255,.92);font-size:13px;font-weight:600;text-align:center;padding:14px 16px 6px;letter-spacing:.02em}
+.lb-counter{color:rgba(255,255,255,.5);font-size:11px;font-weight:500;text-align:center;padding:0 0 calc(env(safe-area-inset-bottom,0px) + 16px);font-variant-numeric:tabular-nums}
 
 /* ═══════════════ HABIT SHEET ═══════════════ */
 .sheet-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:250;align-items:flex-end;justify-content:center}
@@ -519,7 +534,10 @@ html[data-theme=dark] .hm-hi{background:rgba(10,132,255,.62)}
   <!-- SKETCH -->
   <div class="view" id="view-sketch">
     <div class="sec">
-      <div class="sec-label" id="sketch-month-label">Photo Gallery</div>
+      <div class="sketch-month-bar">
+        <div class="sec-label" id="sketch-month-label" style="margin-bottom:0">Photo Gallery</div>
+        <button class="month-viewall-btn" id="month-viewall">View Whole Month ›</button>
+      </div>
       <div class="week-list" id="week-list"></div>
     </div>
   </div>
@@ -579,7 +597,16 @@ html[data-theme=dark] .hm-hi{background:rgba(10,132,255,.62)}
 </div>
 
 <input type="file" id="photo-file-input" accept="image/*" multiple style="display:none">
-<div class="lightbox" id="lightbox"><img id="lightbox-img" src="" alt=""></div>
+<div class="lightbox" id="lightbox">
+  <button class="lb-close" id="lb-close" aria-label="Close">✕</button>
+  <button class="lb-arrow lb-prev" id="lb-prev" aria-label="Previous">‹</button>
+  <div class="lb-stage" id="lb-stage">
+    <img class="lb-img" id="lightbox-img" src="" alt="">
+  </div>
+  <button class="lb-arrow lb-next" id="lb-next" aria-label="Next">›</button>
+  <div class="lb-caption" id="lb-caption"></div>
+  <div class="lb-counter" id="lb-counter"></div>
+</div>
 
 <!-- Habit sheet -->
 <div class="sheet-ov" id="sheet-ov">
@@ -775,17 +802,23 @@ function renderSketch(){
       const photos=S.photos[key]||[];const ci=S.covers[key]||0;
       let dcls='day-col';if(isToday(y,m,d))dcls+=' dc-today';else if(wd===6)dcls+=' dc-sat';else if(wd===0||isHol(m,d))dcls+=' dc-sun';
       let imgs='';
-      if(photos.length){imgs=photos.map((src,i)=>`<img class="day-photo${i===ci?' cover-mark':''}" src="${src}" data-src="${src}">`).join('');}
+      if(photos.length){imgs=photos.map((src,i)=>`<img class="day-photo${i===ci?' cover-mark':''}" src="${src}" data-d="${d}" data-i="${i}">`).join('');}
       else if(S.diary[key]&&S.diary[key].trim()){imgs=`<div class="day-note-only">${esc(S.diary[key].slice(0,80))}</div>`;}
       else{imgs=`<div class="day-empty">${fut?'—':'+ add'}</div>`;}
       cols+=`<div class="${dcls}"${fut?'':` data-d="${d}"`}><div class="day-col-hd"><span class="day-col-n">${d}</span><span class="day-col-wd">${WD_EN[wd]}</span></div><div class="day-photos">${imgs}</div></div>`;
     });
-    html+=`<div class="week-block"><div class="week-hd"><span class="week-title">Week ${wi+1}</span><span class="week-range">${MON_SH[m]} ${first} – ${last}</span></div><div class="week-scroll">${cols}</div></div>`;
+    const weekBtn=`<button class="week-viewall" data-ws="${first}" data-we="${last}">View All ›</button>`;
+    html+=`<div class="week-block"><div class="week-hd"><span class="week-title">Week ${wi+1} <span class="week-range" style="font-weight:500;margin-left:4px">${MON_SH[m]} ${first}–${last}</span></span>${weekBtn}</div><div class="week-scroll">${cols}</div></div>`;
   });
   document.getElementById('week-list').innerHTML=html||`<div class="empty"><div class="empty-tx">No days</div></div>`;
-  // Photo click → lightbox (full res); stop bubbling to day-col
-  document.querySelectorAll('#week-list .day-photo').forEach(img=>img.addEventListener('click',e=>{e.stopPropagation();openLightbox(img.dataset.src);}));
+  // Photo click → open that day's gallery starting at the clicked photo
+  document.querySelectorAll('#week-list .day-photo').forEach(img=>img.addEventListener('click',e=>{e.stopPropagation();openDayGallery(y,m,+img.dataset.d,+img.dataset.i);}));
   document.querySelectorAll('#week-list .day-col[data-d]').forEach(c=>c.addEventListener('click',()=>openWin(+c.dataset.d)));
+  // Week-level View All buttons
+  document.querySelectorAll('#week-list .week-viewall').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();openWeekGallery(y,m,+b.dataset.ws,+b.dataset.we);}));
+  // Month-level View All button (in header, above the list)
+  const va=document.getElementById('month-viewall');
+  if(va)va.onclick=e=>{e.stopPropagation();openMonthGallery(y,m);};
 }
 
 /* ── Overview ── */
@@ -843,17 +876,163 @@ document.getElementById('win-cancel').addEventListener('click',closeWin);
 /* ── Photos w/ cover ── */
 function renderPhotoStrip(key){
   const photos=S.photos[key]||[];const ci=S.covers[key]||0;
-  let h=photos.map((src,i)=>`<div class="photo-item${i===ci?' is-cover':''}"><img class="photo-thumb" src="${src}" data-src="${src}"><div class="photo-actions"><div class="pa-btn cover-btn${i===ci?' active':''}" data-cover="${i}" data-key="${key}" title="Set as cover">★</div><div class="pa-btn" data-del="${i}" data-key="${key}" title="Delete">✕</div></div>${i===ci?'<div class="cover-badge">COVER</div>':''}</div>`).join('');
+  let h=photos.map((src,i)=>`<div class="photo-item${i===ci?' is-cover':''}"><img class="photo-thumb" src="${src}" data-i="${i}"><div class="photo-actions"><div class="pa-btn cover-btn${i===ci?' active':''}" data-cover="${i}" data-key="${key}" title="Set as cover">★</div><div class="pa-btn" data-del="${i}" data-key="${key}" title="Delete">✕</div></div>${i===ci?'<div class="cover-badge">COVER</div>':''}</div>`).join('');
   h+=`<div class="photo-add-btn" id="photo-add-btn">＋</div>`;
   const strip=document.getElementById('photo-strip');strip.innerHTML=h;
-  strip.querySelectorAll('.photo-thumb').forEach(img=>img.addEventListener('click',()=>openLightbox(img.dataset.src)));
+  const parts=key.split('-');const py=+parts[0],pm=+parts[1]-1,pd=+parts[2];
+  strip.querySelectorAll('.photo-thumb').forEach(img=>img.addEventListener('click',()=>openDayGallery(py,pm,pd,+img.dataset.i)));
   strip.querySelectorAll('[data-cover]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();S.covers[b.dataset.key]=+b.dataset.cover;save();renderPhotoStrip(b.dataset.key);renderSketch();renderDiaryView();showToast('⭐ Cover set');}));
   strip.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();const k=b.dataset.key,idx=+b.dataset.del;S.photos[k].splice(idx,1);if(S.covers[k]>=S.photos[k].length)S.covers[k]=0;if(!S.photos[k].length){delete S.photos[k];delete S.covers[k];}save();renderPhotoStrip(k);renderSketch();renderDiaryView();showToast('🗑️ Removed');}));
   document.getElementById('photo-add-btn').addEventListener('click',()=>{document.getElementById('photo-file-input').dataset.key=key;document.getElementById('photo-file-input').click();});
 }
-document.getElementById('photo-file-input').addEventListener('change',function(){const key=this.dataset.key||winKey;if(!key)return;const files=Array.from(this.files);if(!files.length)return;Promise.all(files.map(f=>new Promise(res=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.readAsDataURL(f);}))).then(urls=>{if(!S.photos[key])S.photos[key]=[];S.photos[key].push(...urls);save();renderPhotoStrip(key);renderSketch();renderDiaryView();showToast(`📷 ${urls.length} added`);});this.value='';});
-function openLightbox(src){document.getElementById('lightbox-img').src=src;document.getElementById('lightbox').classList.add('open');}
-document.getElementById('lightbox').addEventListener('click',()=>document.getElementById('lightbox').classList.remove('open'));
+
+/* ═══════════ IMAGE COMPRESSION ═══════════ */
+// Resize so the longest edge <= MAX_EDGE, export JPEG at QUALITY.
+// Greatly reduces storage size (e.g. 5MB → ~250KB) while staying sharp on screen.
+const IMG_MAX_EDGE=1280;
+const IMG_QUALITY=0.72;
+function compressImage(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        let{width:w,height:h}=img;
+        if(Math.max(w,h)>IMG_MAX_EDGE){
+          if(w>=h){ h=Math.round(h*IMG_MAX_EDGE/w); w=IMG_MAX_EDGE; }
+          else    { w=Math.round(w*IMG_MAX_EDGE/h); h=IMG_MAX_EDGE; }
+        }
+        const canvas=document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        const ctx=canvas.getContext('2d');
+        ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h); // flatten transparency for JPEG
+        ctx.drawImage(img,0,0,w,h);
+        try{
+          const out=canvas.toDataURL('image/jpeg',IMG_QUALITY);
+          // If compression somehow produced a larger string than the original, keep the smaller one
+          resolve(out.length < e.target.result.length ? out : e.target.result);
+        }catch(err){ resolve(e.target.result); }
+      };
+      img.onerror=()=>resolve(e.target.result); // fallback: store original
+      img.src=e.target.result;
+    };
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+function approxKB(dataUrl){
+  // base64 → bytes ≈ length * 3/4
+  const i=dataUrl.indexOf(',');
+  const b64=i>=0?dataUrl.slice(i+1):dataUrl;
+  return Math.round(b64.length*0.75/1024);
+}
+
+document.getElementById('photo-file-input').addEventListener('change',function(){
+  const key=this.dataset.key||winKey; if(!key)return;
+  const files=Array.from(this.files); if(!files.length)return;
+  showToast('📷 Compressing…');
+  Promise.all(files.map(f=>compressImage(f))).then(urls=>{
+    if(!S.photos[key])S.photos[key]=[];
+    S.photos[key].push(...urls);
+    save(); renderPhotoStrip(key); renderSketch(); renderDiaryView();
+    const totalKB=urls.reduce((a,u)=>a+approxKB(u),0);
+    showToast(`📷 ${urls.length} added · ~${totalKB}KB`);
+  }).catch(()=>showToast('❌ Upload failed'));
+  this.value='';
+});
+/* ═══════════ LIGHTBOX GALLERY ═══════════ */
+let lbItems=[];   // [{src, dateKey}] or [{src, y,m,d}]
+let lbIndex=0;
+const lbEl=document.getElementById('lightbox');
+const lbImg=document.getElementById('lightbox-img');
+const lbCaption=document.getElementById('lb-caption');
+const lbCounter=document.getElementById('lb-counter');
+const lbPrev=document.getElementById('lb-prev');
+const lbNext=document.getElementById('lb-next');
+
+function fmtCaption(item){
+  // item has y,m,d
+  const wd=new Date(item.y,item.m,item.d).getDay();
+  return `${MON_EN[item.m]} ${item.d}, ${item.y} · ${WD_EN[wd]}`;
+}
+function lbRender(){
+  if(!lbItems.length)return;
+  if(lbIndex<0)lbIndex=0;
+  if(lbIndex>lbItems.length-1)lbIndex=lbItems.length-1;
+  const it=lbItems[lbIndex];
+  lbImg.src=it.src;
+  lbCaption.textContent=it.cap||(it.y!=null?fmtCaption(it):'');
+  lbCounter.textContent=lbItems.length>1?`${lbIndex+1} / ${lbItems.length}`:'';
+  lbPrev.classList.toggle('hidden',lbIndex<=0);
+  lbNext.classList.toggle('hidden',lbIndex>=lbItems.length-1);
+}
+function lbOpen(items,startIndex){
+  lbItems=items;lbIndex=startIndex||0;
+  lbRender();
+  lbEl.classList.add('open');
+}
+function lbClose(){lbEl.classList.remove('open');lbItems=[];}
+function lbStep(d){lbIndex+=d;lbRender();}
+
+// Simple single-image open (kept for compatibility) — wraps into gallery of 1
+function openLightbox(src,cap){ lbOpen([{src,cap:cap||''}],0); }
+
+// Open a whole day's photos
+function openDayGallery(y,m,d,startIndex){
+  const key=dk(y,m,d);
+  const photos=S.photos[key]||[];
+  if(!photos.length)return;
+  lbOpen(photos.map(src=>({src,y,m,d})),startIndex||0);
+}
+
+// Open the entire month's photos (1st → end), each with its date
+function openMonthGallery(y,m){
+  const days=daysIn(y,m);const items=[];
+  for(let d=1;d<=days;d++){
+    const ph=S.photos[dk(y,m,d)]||[];
+    ph.forEach(src=>items.push({src,y,m,d}));
+  }
+  if(!items.length){showToast('No photos this month yet');return;}
+  lbOpen(items,0);
+}
+
+// Open a range of days (a week) as a gallery
+function openWeekGallery(y,m,dStart,dEnd){
+  const items=[];
+  for(let d=dStart;d<=dEnd;d++){
+    const ph=S.photos[dk(y,m,d)]||[];
+    ph.forEach(src=>items.push({src,y,m,d}));
+  }
+  if(!items.length){showToast('No photos this week yet');return;}
+  lbOpen(items,0);
+}
+
+lbPrev.addEventListener('click',e=>{e.stopPropagation();lbStep(-1);});
+lbNext.addEventListener('click',e=>{e.stopPropagation();lbStep(1);});
+document.getElementById('lb-close').addEventListener('click',e=>{e.stopPropagation();lbClose();});
+// click backdrop (not the image) closes
+lbEl.addEventListener('click',e=>{ if(e.target===lbEl||e.target.id==='lb-stage') lbClose(); });
+// keyboard
+document.addEventListener('keydown',e=>{
+  if(!lbEl.classList.contains('open'))return;
+  if(e.key==='ArrowLeft')lbStep(-1);
+  else if(e.key==='ArrowRight')lbStep(1);
+  else if(e.key==='Escape')lbClose();
+});
+// swipe
+(function(){
+  const stage=document.getElementById('lb-stage');
+  let x0=null,y0=null;
+  stage.addEventListener('touchstart',e=>{const t=e.touches[0];x0=t.clientX;y0=t.clientY;},{passive:true});
+  stage.addEventListener('touchend',e=>{
+    if(x0==null)return;
+    const t=e.changedTouches[0];
+    const dx=t.clientX-x0,dy=t.clientY-y0;
+    if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)){ lbStep(dx<0?1:-1); }
+    else if(dy>80&&Math.abs(dy)>Math.abs(dx)){ lbClose(); } // swipe down to close
+    x0=y0=null;
+  },{passive:true});
+})();
 
 /* ═══════════ HABIT SHEET ═══════════ */
 let editId=null;
