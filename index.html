@@ -370,6 +370,9 @@ html[data-theme=dark] .hm-hi{background:rgba(10,132,255,.62)}
 .photo-section-label{font-size:11px;font-weight:600;color:var(--ink4);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 8px}
 .photo-strip{display:flex;gap:8px;flex-wrap:wrap}
 .photo-item{position:relative;width:126px;height:168px}
+.photo-item.dragging{opacity:.45;transform:scale(.95)}
+.photo-item.drag-over{outline:2px dashed var(--accent);outline-offset:2px}
+.drag-hint{position:absolute;bottom:4px;right:5px;font-size:11px;color:rgba(255,255,255,.85);background:rgba(0,0,0,.45);border-radius:4px;padding:0 4px;line-height:1.4;letter-spacing:-1px;pointer-events:none}
 .photo-thumb{width:126px;height:168px;border-radius:var(--r-sm);object-fit:cover;border:1px solid var(--border);cursor:zoom-in;transition:transform .15s;display:block}
 .photo-thumb:hover{transform:scale(1.03)}
 .photo-item.is-cover .photo-thumb{outline:2px solid var(--accent);outline-offset:1px}
@@ -390,10 +393,12 @@ html[data-theme=dark] .hm-hi{background:rgba(10,132,255,.62)}
 .overlay.fs-overlay{padding:0}
 .lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:500;align-items:center;justify-content:center;flex-direction:column}
 .lightbox.open{display:flex}
-.lb-stage{flex:1;display:flex;align-items:center;justify-content:center;width:100%;overflow:hidden;touch-action:pan-y;padding:40px 8px 0;position:relative}
-.lb-tapzone{position:absolute;top:0;bottom:0;width:40%;z-index:2;cursor:pointer}
+.lb-stage{flex:1;display:flex;align-items:center;justify-content:center;width:100%;overflow:hidden;touch-action:none;padding:40px 8px 0;position:relative}
+.lb-tapzone{position:absolute;top:18%;bottom:18%;width:32%;z-index:2;cursor:pointer}
 .lb-tap-left{left:0}
 .lb-tap-right{right:0}
+.lb-img{max-width:94%;max-height:100%;border-radius:var(--r-md);box-shadow:var(--sh-lg);object-fit:contain;user-select:none;-webkit-user-drag:none;transition:transform .12s ease;transform-origin:center center;will-change:transform;z-index:1}
+.lb-img.zoomed{transition:none;cursor:grab;z-index:4}
 .lb-img{max-width:94%;max-height:100%;border-radius:var(--r-md);box-shadow:var(--sh-lg);object-fit:contain;user-select:none;-webkit-user-drag:none;transition:transform .05s}
 .lb-close{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);right:16px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:3;transition:background .15s}
 .lb-close:hover{background:rgba(255,255,255,.28)}
@@ -881,14 +886,86 @@ document.getElementById('win-cancel').addEventListener('click',closeWin);
 /* ── Photos w/ cover ── */
 function renderPhotoStrip(key){
   const photos=S.photos[key]||[];const ci=S.covers[key]||0;
-  let h=photos.map((src,i)=>`<div class="photo-item${i===ci?' is-cover':''}"><img class="photo-thumb" src="${src}" data-i="${i}"><div class="photo-actions"><div class="pa-btn cover-btn${i===ci?' active':''}" data-cover="${i}" data-key="${key}" title="Set as cover">★</div><div class="pa-btn" data-del="${i}" data-key="${key}" title="Delete">✕</div></div>${i===ci?'<div class="cover-badge">COVER</div>':''}</div>`).join('');
+  let h=photos.map((src,i)=>`<div class="photo-item${i===ci?' is-cover':''}" draggable="true" data-key="${key}" data-i="${i}"><img class="photo-thumb" src="${src}" data-i="${i}" draggable="false"><div class="photo-actions"><div class="pa-btn cover-btn${i===ci?' active':''}" data-cover="${i}" data-key="${key}" title="Set as cover">★</div><div class="pa-btn" data-del="${i}" data-key="${key}" title="Delete">✕</div></div>${i===ci?'<div class="cover-badge">COVER</div>':''}<div class="drag-hint">⋮⋮</div></div>`).join('');
   h+=`<div class="photo-add-btn" id="photo-add-btn">＋</div>`;
   const strip=document.getElementById('photo-strip');strip.innerHTML=h;
   const parts=key.split('-');const py=+parts[0],pm=+parts[1]-1,pd=+parts[2];
   strip.querySelectorAll('.photo-thumb').forEach(img=>img.addEventListener('click',()=>openDayGallery(py,pm,pd,+img.dataset.i)));
   strip.querySelectorAll('[data-cover]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();S.covers[b.dataset.key]=+b.dataset.cover;save();renderPhotoStrip(b.dataset.key);renderSketch();renderDiaryView();showToast('⭐ Cover set');}));
-  strip.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();const k=b.dataset.key,idx=+b.dataset.del;S.photos[k].splice(idx,1);if(S.covers[k]>=S.photos[k].length)S.covers[k]=0;if(!S.photos[k].length){delete S.photos[k];delete S.covers[k];}save();renderPhotoStrip(k);renderSketch();renderDiaryView();showToast('🗑️ Removed');}));
+  strip.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();const k=b.dataset.key,idx=+b.dataset.del;reorderRemove(k,idx);}));
   document.getElementById('photo-add-btn').addEventListener('click',()=>{document.getElementById('photo-file-input').dataset.key=key;document.getElementById('photo-file-input').click();});
+  setupPhotoDrag(strip,key,py,pm,pd);
+}
+
+// Reorder helper: move photo and keep the cover pointing at the same photo
+function reorderMove(key,from,to){
+  const arr=S.photos[key]; if(!arr||from===to||to<0||to>=arr.length)return;
+  const coverSrc=arr[S.covers[key]||0];
+  const [moved]=arr.splice(from,1);
+  arr.splice(to,0,moved);
+  const newCover=arr.indexOf(coverSrc);
+  S.covers[key]=newCover>=0?newCover:0;
+  save();
+}
+function reorderRemove(k,idx){
+  const coverSrc=S.photos[k][S.covers[k]||0];
+  S.photos[k].splice(idx,1);
+  if(!S.photos[k].length){delete S.photos[k];delete S.covers[k];}
+  else{const nc=S.photos[k].indexOf(coverSrc);S.covers[k]=nc>=0?nc:0;}
+  save();renderPhotoStrip(k);renderSketch();renderDiaryView();showToast('🗑️ Removed');
+}
+
+// Drag-and-drop reorder (desktop pointer + mobile touch)
+function setupPhotoDrag(strip,key,py,pm,pd){
+  let dragEl=null,dragFrom=null;
+
+  // ── Desktop HTML5 DnD ──
+  strip.querySelectorAll('.photo-item').forEach(item=>{
+    item.addEventListener('dragstart',e=>{
+      dragEl=item;dragFrom=+item.dataset.i;
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed='move';
+      try{e.dataTransfer.setData('text/plain',String(dragFrom));}catch(_){}
+    });
+    item.addEventListener('dragend',()=>{item.classList.remove('dragging');dragEl=null;});
+    item.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';});
+    item.addEventListener('drop',e=>{
+      e.preventDefault();e.stopPropagation();
+      const to=+item.dataset.i;
+      if(dragFrom!=null&&dragFrom!==to){reorderMove(key,dragFrom,to);renderPhotoStrip(key);renderSketch();renderDiaryView();showToast('↔️ Reordered');}
+    });
+  });
+
+  // ── Mobile touch drag (long-press to pick up) ──
+  let touchItem=null,touchFrom=null,pressTimer=null,dragging=false;
+  strip.querySelectorAll('.photo-item').forEach(item=>{
+    item.addEventListener('touchstart',e=>{
+      touchItem=item;touchFrom=+item.dataset.i;dragging=false;
+      pressTimer=setTimeout(()=>{dragging=true;item.classList.add('dragging');try{navigator.vibrate&&navigator.vibrate(15);}catch(_){}},250);
+    },{passive:true});
+    item.addEventListener('touchmove',e=>{
+      if(!dragging){clearTimeout(pressTimer);return;}
+      e.preventDefault();
+      const t=e.touches[0];
+      const over=document.elementFromPoint(t.clientX,t.clientY);
+      const overItem=over&&over.closest&&over.closest('.photo-item');
+      strip.querySelectorAll('.photo-item').forEach(x=>x.classList.remove('drag-over'));
+      if(overItem&&overItem!==touchItem)overItem.classList.add('drag-over');
+    },{passive:false});
+    item.addEventListener('touchend',e=>{
+      clearTimeout(pressTimer);
+      if(dragging){
+        const t=e.changedTouches[0];
+        const over=document.elementFromPoint(t.clientX,t.clientY);
+        const overItem=over&&over.closest&&over.closest('.photo-item');
+        if(overItem&&overItem!==touchItem){
+          const to=+overItem.dataset.i;
+          reorderMove(key,touchFrom,to);renderPhotoStrip(key);renderSketch();renderDiaryView();showToast('↔️ Reordered');
+        } else { touchItem.classList.remove('dragging'); }
+      }
+      dragging=false;touchItem=null;
+    });
+  });
 }
 
 /* ═══════════ IMAGE COMPRESSION ═══════════ */
@@ -970,14 +1047,26 @@ function lbRender(){
   lbCounter.textContent=lbItems.length>1?`${lbIndex+1} / ${lbItems.length}`:'';
   lbPrev.classList.toggle('hidden',lbIndex<=0);
   lbNext.classList.toggle('hidden',lbIndex>=lbItems.length-1);
+  zoomReset();
 }
 function lbOpen(items,startIndex){
   lbItems=items;lbIndex=startIndex||0;
   lbRender();
   lbEl.classList.add('open');
 }
-function lbClose(){lbEl.classList.remove('open');lbItems=[];}
+function lbClose(){lbEl.classList.remove('open');lbItems=[];zoomReset();}
 function lbStep(d){lbIndex+=d;lbRender();}
+
+/* ── Pinch / double-tap zoom ── */
+let zScale=1,zTx=0,zTy=0;
+function zoomApply(){
+  lbImg.style.transform=`translate(${zTx}px,${zTy}px) scale(${zScale})`;
+  lbImg.classList.toggle('zoomed',zScale>1.01);
+  // disable side tap-zones while zoomed so panning doesn't flip pages
+  document.getElementById('lb-tap-left').style.display = zScale>1.01?'none':'';
+  document.getElementById('lb-tap-right').style.display = zScale>1.01?'none':'';
+}
+function zoomReset(){zScale=1;zTx=0;zTy=0;zoomApply();}
 
 // Simple single-image open (kept for compatibility) — wraps into gallery of 1
 function openLightbox(src,cap){ lbOpen([{src,cap:cap||''}],0); }
@@ -1027,19 +1116,71 @@ document.addEventListener('keydown',e=>{
   else if(e.key==='ArrowRight')lbStep(1);
   else if(e.key==='Escape')lbClose();
 });
-// swipe
+
+/* ── Touch gestures: pinch-zoom, pan, swipe, double-tap ── */
 (function(){
   const stage=document.getElementById('lb-stage');
-  let x0=null,y0=null;
-  stage.addEventListener('touchstart',e=>{const t=e.touches[0];x0=t.clientX;y0=t.clientY;},{passive:true});
+  let x0=null,y0=null;            // single-touch start
+  let startScale=1,startDist=0;   // pinch
+  let panStartX=0,panStartY=0,baseTx=0,baseTy=0;
+  let mode=null;                  // 'pan' | 'pinch' | 'swipe'
+  let lastTap=0;
+
+  function dist(t1,t2){const dx=t1.clientX-t2.clientX,dy=t1.clientY-t2.clientY;return Math.hypot(dx,dy);}
+
+  stage.addEventListener('touchstart',e=>{
+    if(e.touches.length===2){
+      mode='pinch';
+      startDist=dist(e.touches[0],e.touches[1]);
+      startScale=zScale;
+    }else if(e.touches.length===1){
+      const t=e.touches[0];
+      x0=t.clientX;y0=t.clientY;
+      if(zScale>1.01){mode='pan';panStartX=t.clientX;panStartY=t.clientY;baseTx=zTx;baseTy=zTy;}
+      else{mode='swipe';}
+      // double-tap detection
+      const now=Date.now();
+      if(now-lastTap<300){
+        if(zScale>1.01) zoomReset();
+        else { zScale=2.4; zoomApply(); }
+        lastTap=0;
+      }else lastTap=now;
+    }
+  },{passive:false});
+
+  stage.addEventListener('touchmove',e=>{
+    if(mode==='pinch'&&e.touches.length===2){
+      e.preventDefault();
+      const d=dist(e.touches[0],e.touches[1]);
+      zScale=Math.max(1,Math.min(5,startScale*(d/startDist)));
+      zoomApply();
+    }else if(mode==='pan'&&e.touches.length===1){
+      e.preventDefault();
+      const t=e.touches[0];
+      zTx=baseTx+(t.clientX-panStartX);
+      zTy=baseTy+(t.clientY-panStartY);
+      zoomApply();
+    }
+  },{passive:false});
+
   stage.addEventListener('touchend',e=>{
-    if(x0==null)return;
-    const t=e.changedTouches[0];
-    const dx=t.clientX-x0,dy=t.clientY-y0;
-    if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)){ lbStep(dx<0?1:-1); }
-    else if(dy>80&&Math.abs(dy)>Math.abs(dx)){ lbClose(); } // swipe down to close
-    x0=y0=null;
+    if(mode==='pinch'){ if(zScale<=1.05)zoomReset(); mode=null; return; }
+    if(mode==='pan'){ mode=null; return; }
+    // swipe (only when not zoomed)
+    if(mode==='swipe'&&x0!=null&&zScale<=1.01){
+      const t=e.changedTouches[0];
+      const dx=t.clientX-x0,dy=t.clientY-y0;
+      if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)){ lbStep(dx<0?1:-1); }
+      else if(dy>80&&Math.abs(dy)>Math.abs(dx)){ lbClose(); }
+    }
+    x0=y0=null;mode=null;
   },{passive:true});
+
+  // Desktop double-click to zoom toggle
+  lbImg.addEventListener('dblclick',e=>{
+    e.stopPropagation();
+    if(zScale>1.01)zoomReset();else{zScale=2.4;zoomApply();}
+  });
 })();
 
 /* ═══════════ HABIT SHEET ═══════════ */
